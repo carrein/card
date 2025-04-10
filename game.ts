@@ -1,40 +1,3 @@
-// You are to create a card game for 4 players.
-
-// The players each draw a card from the deck each round.
-
-// The player who draws the highest card will win the round and score a point.
-
-// When there are no more cards left in the deck,
-
-// the game should end with a scoreboard that displays the players
-
-// ranked in order of the total number of points they have scored.
-
-// Total: 52 cards.
-
-// 4 suits, 13 cards in each suit.
-
-// Spades > Hearts > Clubs > Diamonds
-
-// A -> K, 1, 13.
-
-// They would like more than 4 players in the game.
-
-// All players who draw a card must now show the card.
-
-// Subsequent players are allowed to skip the round.
-
-// There are now two decks of playing cards available per game.
-
-// In the event of a tie, both players receive a point.
-
-// If the cards run out, nobody wins that round.
-
-// The first person who draws cannot skip the round.
-
-// Rounds always start with the same first player, who will not be able to skip then.
-
-// --- CARD GAME --- //
 import readline from "readline";
 
 // Represent suits with array to keep order.
@@ -67,8 +30,8 @@ type Card = {
 
 type Deck = Card[];
 
-// Generate a deck of cards and assigned them values ranging from [0..52] by rank and suit.
-const generateDeck = (): Deck => {
+// Generate a deck of cards and assigned them values ranging from [1..52] by rank and suit.
+export const generateDeck = (): Deck => {
   const deck: Deck = [];
   let value = 1;
 
@@ -85,48 +48,8 @@ const generateDeck = (): Deck => {
   return deck;
 };
 
-// Borrow this implementation of deep equality strictly for testing purposes.
-// Ideally rely on a well-maintained library for such functions.
-export const isEqual = <T>(a: T, b: T): boolean => {
-  if (a === b) {
-    return true;
-  }
-
-  const bothAreObjects =
-    a && b && typeof a === "object" && typeof b === "object";
-
-  return Boolean(
-    bothAreObjects &&
-      Object.keys(a).length === Object.keys(b).length &&
-      Object.entries(a).every(([k, v]) => isEqual(v, b[k as keyof T]))
-  );
-};
-
-// // --- DECK GENERATOR TESTS --- //
-// console.log(
-//   generateDeck().some((x) => isEqual(x, { rank: "A", suit: "♦", value: 1 }))
-// ); // true;
-// console.log(
-//   generateDeck().some((x) => isEqual(x, { rank: "J", suit: "♣", value: 42 }))
-// ); // true;
-// console.log(
-//   generateDeck().some((x) => isEqual(x, { rank: "Q", suit: "♥", value: 47 }))
-// ); // true;
-// console.log(
-//   generateDeck().some((x) => isEqual(x, { rank: "K", suit: "♠", value: 52 }))
-// ); // true;
-// console.log(
-//   generateDeck().some((x) => isEqual(x, { rank: "K", suit: "♦", value: 1 }))
-// ); // false;
-// console.log(
-//   generateDeck().some((x) => isEqual(x, { rank: "7", suit: "♦", value: 27 }))
-// ); // false;
-// console.log(
-//   generateDeck().some((x) => isEqual(x, { rank: "A", suit: "♠", value: 52 }))
-// ); // false;
-
 // Given a deck of cards, shuffle them and return an object with the shuffled cards and the total count.
-const shuffleDeck = (
+export const shuffleDeck = (
   deck: Deck
 ): {
   deck: Deck;
@@ -142,15 +65,6 @@ const shuffleDeck = (
     totalCount: deck.length,
   };
 };
-
-// --- SHUFFLE DECK TESTS --- //
-// A naive test to check if deck is actually shuffled by testing a shuffle against a sorted deck by value.
-console.log(
-  shuffleDeck(generateDeck()).deck.map((card) => card.value) ===
-    shuffleDeck(generateDeck())
-      .deck.map((card) => card.value)
-      .sort()
-); // false;
 
 // Borrow this function to read input from command line.
 const readInput = (question: string) => {
@@ -186,6 +100,13 @@ const init = async () => {
     return [];
   }
 
+  const skipInput = await readInput("Allow skipping (y/n)?: ");
+
+  if (numDecks <= 0) {
+    console.log("Minimum of 1 deck required.");
+    return;
+  }
+
   // Prep deck and commence game.
   const rawDeck = Array.from({ length: numDecks }, () => generateDeck()).flat();
   const shuffledDeckResponse = shuffleDeck(rawDeck);
@@ -194,10 +115,12 @@ const init = async () => {
   console.log(`Game prepped with: ${shuffledDeckResponse.totalCount} cards!`);
   console.log("======================");
 
-  console.log(game(numPlayers, deck));
+  console.log(
+    await game(numPlayers, deck, skipInput === "y" || skipInput === "Y")
+  );
 };
 
-const game = (numPlayers: number, deck: Deck, skip = false) => {
+const game = async (numPlayers: number, deck: Deck, isSkipAllowed = false) => {
   // The overall tally of player scores.
   const overallScores = Array(numPlayers).fill(0);
   // The currently highest scored card of a given round.
@@ -209,16 +132,26 @@ const game = (numPlayers: number, deck: Deck, skip = false) => {
 
   // Game continues until there are no cards left in the deck.
   while (deck.length > 0) {
+    // Early exit if there are insufficient cards to be dealt to all players in a round.
+    if (deck.length < numPlayers) {
+      console.log("Insufficent cards left in the deck, terminating game.");
+      break;
+    }
+
     roundCounter++;
     console.log(`Round: ${roundCounter}`);
     console.log("======================");
 
-    // Early exit if there are insufficient cards to be dealt to all players in a round.
-    if (deck.length < numPlayers) {
-      break;
-    }
-
     for (let i = 0; i < numPlayers; i++) {
+      // Skipping is not permitted for the first player.
+      if (i !== 0 && isSkipAllowed) {
+        const skip = await readInput(`Skip Player ${i + 1}'s draw (y/n)?: `);
+        if (skip === "y" || skip === "Y") {
+          console.log(`Player ${i + 1} skips!`);
+          continue;
+        }
+      }
+
       // Card draw.
       // https://stackoverflow.com/questions/65514481/typescript-says-array-pop-might-return-undefined-even-when-array-is-guaranteed
       const drawnCard = deck.shift() as Card;
@@ -263,18 +196,64 @@ const game = (numPlayers: number, deck: Deck, skip = false) => {
 
 init();
 
-// console.log(game(1, [])); // [0];
-// console.log(game(8, [])); // [0, 0, 0, 0, 0, 0, 0, 0];
-// console.log(game(1, [{ rank: "A", suit: "♠", value: 4 }])); // [1];
-// console.log(game(8, [{ rank: "A", suit: "♠", value: 4 }])); // [1];
+// // Borrow this implementation of deep equality strictly for testing purposes.
+// // Ideally rely on a well-maintained library for such functions.
+// export const isEqual = <T>(a: T, b: T): boolean => {
+//   if (a === b) {
+//     return true;
+//   }
 
+//   const bothAreObjects =
+//     a && b && typeof a === "object" && typeof b === "object";
+
+//   return Boolean(
+//     bothAreObjects &&
+//       Object.keys(a).length === Object.keys(b).length &&
+//       Object.entries(a).every(([k, v]) => isEqual(v, b[k as keyof T]))
+//   );
+// };
+
+// // generateDeck tests.
+// console.log(
+//   generateDeck().some((x) => isEqual(x, { rank: "A", suit: "♦", value: 1 }))
+// ); // true;
+// console.log(
+//   generateDeck().some((x) => isEqual(x, { rank: "J", suit: "♣", value: 42 }))
+// ); // true;
+// console.log(
+//   generateDeck().some((x) => isEqual(x, { rank: "Q", suit: "♥", value: 47 }))
+// ); // true;
+// console.log(
+//   generateDeck().some((x) => isEqual(x, { rank: "K", suit: "♠", value: 52 }))
+// ); // true;
+// console.log(
+//   generateDeck().some((x) => isEqual(x, { rank: "K", suit: "♦", value: 1 }))
+// ); // false;
+// console.log(
+//   generateDeck().some((x) => isEqual(x, { rank: "7", suit: "♦", value: 27 }))
+// ); // false;
+// console.log(
+//   generateDeck().some((x) => isEqual(x, { rank: "A", suit: "♠", value: 52 }))
+// ); // false;
+
+// // shuffleDeck test.
+// // A naive test to check if deck is actually shuffled by testing a shuffle against a sorted deck by value.
+// console.log(
+//   shuffleDeck(generateDeck()).deck.map((card) => card.value) ===
+//     shuffleDeck(generateDeck())
+//       .deck.map((card) => card.value)
+//       .sort()
+// ); // false;
+
+// console.log(game(1, [])); // [0]
+// console.log(game(8, [])); // [0, 0, 0, 0, 0, 0, 0, 0]
+// console.log(game(1, [{ rank: "A", suit: "♠", value: 4 }])); // [1]
 // console.log(
 //   game(2, [
 //     { rank: "A", suit: "♠", value: 4 },
 //     { rank: "A", suit: "♠", value: 4 },
 //   ])
-// ); // [1, 1, 1, 1]
-
+// ); // [1, 1]
 // console.log(
 //   game(4, [
 //     { rank: "K", suit: "♠", value: 52 },
@@ -283,7 +262,6 @@ init();
 //     { rank: "A", suit: "♠", value: 4 },
 //   ])
 // ); // [1, 0, 0, 0]
-
 // console.log(
 //   game(8, [
 //     { rank: "A", suit: "♦", value: 1 },
@@ -296,7 +274,6 @@ init();
 //     { rank: "A", suit: "♦", value: 1 },
 //   ])
 // ); // [0, 0, 1, 0, 0, 1, 0, 0]
-
 // console.log(
 //   game(2, [
 //     { rank: "A", suit: "♦", value: 1 },
