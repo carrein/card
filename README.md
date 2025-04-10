@@ -5,7 +5,7 @@ Files:
 
 Instructions:
 
-- Run `game.js` with Node by invoking `node`.
+- Run `game.js` with Node by invoking `node game.js`.
 - Run `game.ts` with Node by invoking `npx tsx game.ts`. You will need a TypeScript execution environment like `ts-node` or `tsx`. Install it with `npm i -D tsx` or `yarn -D tsx`.
 
 Conditions:
